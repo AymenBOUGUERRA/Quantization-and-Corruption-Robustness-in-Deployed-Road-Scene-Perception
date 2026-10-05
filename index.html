@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quantization and Corruption Robustness in Deployed Road-Scene Perception</title>
+<meta name="description" content="IEEE ICVES 2026. On real adverse-weather driving images, 8-bit quantization costs a road-scene detector no blur robustness, and makes a recognition encoder more robust to blur it never saw, while both run faster and smaller as true INT8 models.">
+<meta name="author" content="Aymen Bouguerra, Ansgar Radermacher, Fabio Arnez, Chokri Mraidha">
+<meta name="color-scheme" content="light dark">
+<link rel="canonical" href="https://aymenbouguerra.github.io/Quantization-and-Corruption-Robustness-in-Deployed-Road-Scene-Perception/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Quantization and Corruption Robustness in Deployed Road-Scene Perception">
+<meta property="og:description" content="IEEE ICVES 2026. 8-bit quantization costs the detector no blur robustness and makes a recognition encoder more robust to blur it never saw, while both run faster and smaller as true INT8 models.">
+<meta property="og:url" content="https://aymenbouguerra.github.io/Quantization-and-Corruption-Robustness-in-Deployed-Road-Scene-Perception/">
+<meta property="og:image" content="https://aymenbouguerra.github.io/Quantization-and-Corruption-Robustness-in-Deployed-Road-Scene-Perception/assets/social_card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<meta name="citation_title" content="Quantization and Corruption Robustness in Deployed Road-Scene Perception">
+<meta name="citation_author" content="Bouguerra, Aymen">
+<meta name="citation_author" content="Radermacher, Ansgar">
+<meta name="citation_author" content="Arnez, Fabio">
+<meta name="citation_author" content="Mraidha, Chokri">
+<meta name="citation_conference_title" content="IEEE International Conference on Vehicular Electronics and Safety (ICVES)">
+<meta name="citation_publication_date" content="2026">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f77b4'/%3E%3Ctext x='16' y='22' font-family='Arial,sans-serif' font-size='15' font-weight='700' fill='white' text-anchor='middle'%3E8b%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("theme");
+      if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  })();
+</script>
+
+<style>
+  :root {
+    --bg: #fafaf8;
+    --surface: #ffffff;
+    --surface-2: #f2f3f5;
+    --ink: #15171c;
+    --ink-2: #454b56;
+    --ink-3: #676e7a;
+    --line: #e2e4e8;
+    --line-strong: #cdd1d8;
+    --accent: #1f77b4;
+    --accent-ink: #17629a;
+    --accent-soft: #e6f0f8;
+    --on-accent: #ffffff;
+    --window: #fff3c9;
+    --window-ink: #6f5400;
+    --plate: #ffffff;
+    --plate-line: #e2e4e8;
+    --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 2px 6px rgba(16, 24, 40, 0.05);
+    --radius: 14px;
+    --font: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e1014;
+      --surface: #151920;
+      --surface-2: #1b2028;
+      --ink: #e7e9ed;
+      --ink-2: #b3b9c3;
+      --ink-3: #8c939f;
+      --line: #262c35;
+      --line-strong: #353c48;
+      --accent: #5ea8e0;
+      --accent-ink: #86bdea;
+      --accent-soft: #14273a;
+      --on-accent: #0a1520;
+      --window: #3a3114;
+      --window-ink: #ecca62;
+      --plate: #ffffff;
+      --plate-line: #2b313a;
+      --shadow: none;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e1014;
+    --surface: #151920;
+    --surface-2: #1b2028;
+    --ink: #e7e9ed;
+    --ink-2: #b3b9c3;
+    --ink-3: #8c939f;
+    --line: #262c35;
+    --line-strong: #353c48;
+    --accent: #5ea8e0;
+    --accent-ink: #86bdea;
+    --accent-soft: #14273a;
+    --on-accent: #0a1520;
+    --window: #3a3114;
+    --window-ink: #ecca62;
+    --plate: #ffffff;
+    --plate-line: #2b313a;
+    --shadow: none;
+    color-scheme: dark;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 17px/1.65 var(--font);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  img { max-width: 100%; }
+  a { color: var(--accent-ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { text-decoration-thickness: 2px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  em { font-style: italic; }
+  strong { font-weight: 600; color: var(--ink); }
+
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  .prose { max-width: 760px; margin-left: auto; margin-right: auto; }
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 16px; }
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: color-mix(in srgb, var(--bg) 86%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(10px);
+    backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar-inner {
+    max-width: 1120px; margin: 0 auto; padding: 0 24px;
+    height: 56px; display: flex; align-items: center; gap: 16px;
+  }
+  .brand { font-weight: 700; font-size: 0.92rem; color: var(--ink); text-decoration: none; white-space: nowrap; letter-spacing: -0.005em; }
+  .brand span { color: var(--ink-3); font-weight: 500; }
+  .nav { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; justify-content: flex-end; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a {
+    padding: 6px 10px; border-radius: 8px; font-size: 0.86rem; font-weight: 500;
+    color: var(--ink-2); text-decoration: none; white-space: nowrap;
+  }
+  .nav a:hover, .nav a.active { color: var(--ink); background: var(--surface-2); }
+  .theme-btn {
+    flex: none; width: 36px; height: 36px; border-radius: 9px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface); color: var(--ink-2);
+    display: grid; place-items: center; padding: 0;
+  }
+  .theme-btn:hover { color: var(--ink); border-color: var(--line-strong); }
+  .theme-btn svg { width: 18px; height: 18px; }
+  .theme-btn .moon { display: none; }
+  :root[data-theme="dark"] .theme-btn .sun { display: none; }
+  :root[data-theme="dark"] .theme-btn .moon { display: block; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-btn .sun { display: none; }
+    :root:not([data-theme="light"]) .theme-btn .moon { display: block; }
+  }
+  @media (max-width: 640px) {
+    .topbar-inner { padding: 0 16px; gap: 10px; }
+    .brand span { display: none; }
+    .nav { justify-content: flex-start; }
+  }
+
+  /* ---------- hero ---------- */
+  .hero { padding: 64px 0 8px; text-align: center; }
+  .venue {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--line-strong); background: var(--surface);
+    font-size: 0.8rem; font-weight: 600; letter-spacing: 0.02em; color: var(--ink-2);
+  }
+  .venue i { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  h1 {
+    font-size: clamp(1.9rem, 4vw, 2.75rem); line-height: 1.14; letter-spacing: -0.026em;
+    font-weight: 700; margin: 22px auto 22px; max-width: 1000px; text-wrap: balance;
+  }
+  @media (max-width: 760px) { .br-wide { display: none; } }
+  .authors {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 22px;
+    margin: 0; padding: 0; list-style: none; font-size: 1.1rem; font-weight: 500;
+  }
+  .affil { margin: 10px 0 0; color: var(--ink-2); font-size: 1rem; }
+  .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 30px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    min-height: 44px; padding: 0 18px; border-radius: 999px;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+    font-weight: 600; font-size: 0.95rem; text-decoration: none; line-height: 1.2;
+    transition: border-color .15s, background-color .15s;
+  }
+  .btn:hover { border-color: var(--ink-3); text-decoration: none; }
+  .btn svg { width: 18px; height: 18px; flex: none; }
+  .btn .tag {
+    font-size: 0.72rem; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+    background: var(--surface-2); color: var(--ink-2);
+  }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn-primary:hover { border-color: var(--accent); filter: brightness(1.06); }
+  .btn-primary .tag { background: color-mix(in srgb, var(--on-accent) 18%, transparent); color: var(--on-accent); }
+  .btn[aria-disabled="true"] { color: var(--ink-3); border-style: dashed; cursor: default; }
+  .btn[aria-disabled="true"]:hover { border-color: var(--line-strong); }
+
+  /* ---------- overview ---------- */
+  .overview {
+    display: grid; grid-template-columns: minmax(0, 430px) minmax(0, 1fr);
+    gap: 48px; align-items: center; margin-top: 56px;
+  }
+  .overview figure { margin: 0; }
+  .label {
+    display: inline-block; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--accent-ink);
+  }
+  .tldr p { font-size: 1.14rem; line-height: 1.6; margin: 8px 0 0; color: var(--ink); }
+  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 28px; }
+  .stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px 15px; }
+  .stat-value { font-size: clamp(1.55rem, 3vw, 2.05rem); font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; }
+  .stat-label { font-size: 0.92rem; font-weight: 600; margin-top: 8px; line-height: 1.35; }
+  .stat-note { font-size: 0.84rem; color: var(--ink-3); margin-top: 3px; line-height: 1.4; }
+  @media (max-width: 900px) {
+    .overview { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+    .overview figure { max-width: 460px; margin: 0 auto; }
+  }
+
+  /* ---------- sections ---------- */
+  section { padding-top: 64px; scroll-margin-top: 64px; }
+  .sec-head { margin-bottom: 18px; }
+  h2 {
+    font-size: clamp(1.5rem, 2.7vw, 2rem); line-height: 1.2; letter-spacing: -0.018em;
+    font-weight: 700; margin: 8px 0 0; text-wrap: balance;
+  }
+  h3 { font-size: 1.05rem; line-height: 1.35; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.005em; }
+  p { margin: 0 0 1em; }
+  .lead { font-size: 1.08rem; color: var(--ink-2); }
+  .abstract p { color: var(--ink); text-align: left; }
+
+  figure { margin: 30px 0; }
+  .plate {
+    display: block; background: var(--plate); border: 1px solid var(--plate-line);
+    border-radius: var(--radius); padding: clamp(10px, 2vw, 22px); box-shadow: var(--shadow);
+  }
+  .plate img { display: block; width: 100%; height: auto; }
+  .fig-plot .plate { max-width: 960px; margin-left: auto; margin-right: auto; }
+  @media (max-width: 640px) {
+    .fig-wide .plate { overflow-x: auto; overscroll-behavior-x: contain; }
+    .fig-wide .plate img { min-width: 640px; }
+    .fig-wide figcaption::before { content: "Swipe the figure sideways to see every panel."; display: block; font-size: 0.8rem; color: var(--ink-3); margin-bottom: 6px; }
+  }
+  figcaption { max-width: 760px; margin: 14px auto 0; font-size: 0.92rem; color: var(--ink-2); line-height: 1.55; }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  .cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 26px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px 16px; }
+  .card p { font-size: 0.92rem; color: var(--ink-2); margin: 0; line-height: 1.55; }
+  .card .k { display: block; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 8px; }
+  @media (max-width: 960px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 560px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+
+  .note {
+    background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 12px; padding: 18px 22px; margin-top: 26px; margin-bottom: 26px;
+  }
+  .note h3 { margin-bottom: 8px; }
+  .note ul { margin: 0; padding-left: 1.1em; }
+  .note li { margin: 6px 0; color: var(--ink-2); font-size: 0.95rem; }
+  .note li strong { color: var(--ink); }
+
+  .checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 22px 0 8px; }
+  .check { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .check-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+  .check-top h3 { margin: 0; }
+  .verdict {
+    flex: none; font-size: 0.72rem; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--line-strong); color: var(--ink-2); white-space: nowrap;
+  }
+  .check p { font-size: 0.92rem; color: var(--ink-2); margin: 0; line-height: 1.55; }
+  @media (max-width: 720px) { .checks { grid-template-columns: minmax(0, 1fr); } }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); margin-top: 22px; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+  th, td { padding: 10px 14px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child, th.l, td.l { text-align: left; }
+  thead th { font-weight: 600; font-size: 0.8rem; color: var(--ink-2); background: var(--surface-2); letter-spacing: 0.01em; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td { font-variant-numeric: tabular-nums; }
+  td.muted { color: var(--ink-3); }
+  tr.win td { background: var(--window); }
+  .win-key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; background: var(--window); border: 1px solid var(--line-strong); vertical-align: -1px; margin-right: 4px; }
+  .table-note { font-size: 0.86rem; color: var(--ink-3); margin: 10px 0 0; line-height: 1.5; }
+  .two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 36px; align-items: start; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+
+  details.more { margin-top: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+  details.more summary {
+    cursor: pointer; padding: 14px 18px; font-weight: 600; font-size: 0.95rem; list-style: none;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  details.more summary::-webkit-details-marker { display: none; }
+  details.more summary::after { content: "+"; font-size: 1.2rem; font-weight: 500; color: var(--ink-3); }
+  details.more[open] summary::after { content: "\2212"; }
+  details.more .inner { padding: 0 18px 18px; }
+  details.more figure { margin: 4px 0 0; }
+
+  .code-card {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px 28px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px 26px;
+    margin-top: 22px;
+  }
+  .code-card .repo { font-family: var(--mono); font-size: 0.92rem; font-weight: 500; overflow-wrap: anywhere; color: var(--ink); }
+  .code-card .status { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.9rem; color: var(--ink-2); }
+  .code-card .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--window-ink); display: inline-block; flex: none; }
+  .code-card .main { min-width: 0; flex: 1 1 360px; }
+
+  .bib { position: relative; margin-top: 22px; }
+  .bib pre {
+    margin: 0; padding: 20px 22px; overflow-x: auto;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    font: 400 0.84rem/1.65 var(--mono); color: var(--ink);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  @media (min-width: 1000px) { .bib { margin-left: -80px; margin-right: -80px; } }
+  @media (max-width: 640px) { .bib pre { padding-top: 54px; } }
+  .copy-btn {
+    position: absolute; top: 10px; right: 10px;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 11px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--ink-2);
+    font: 600 0.8rem var(--font);
+  }
+  .copy-btn:hover { color: var(--ink); }
+  .copy-btn svg { width: 14px; height: 14px; }
+
+  .related {
+    display: block; margin-top: 18px; padding: 18px 22px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line); text-decoration: none; color: var(--ink);
+  }
+  .related:hover { border-color: var(--line-strong); }
+  .related .t { font-weight: 600; line-height: 1.4; }
+  .related .a { font-size: 0.92rem; color: var(--ink-2); margin-top: 4px; }
+  .related .a b { color: var(--ink); font-weight: 600; }
+  .related .m { font-size: 0.88rem; color: var(--ink-3); margin-top: 4px; }
+
+  footer { margin-top: 96px; border-top: 1px solid var(--line); padding: 36px 0 56px; font-size: 0.84rem; color: var(--ink-3); line-height: 1.6; }
+  footer p { max-width: 860px; }
+  footer .ieee { color: var(--ink-2); }
+</style>
+</head>
+
+<body id="top">
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#top">ICVES 2026 <span>· Quantization &amp; Corruption Robustness</span></a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#abstract">Abstract</a>
+      <a href="#setup">Setup</a>
+      <a href="#detection">Detection</a>
+      <a href="#recognition">Recognition</a>
+      <a href="#mechanism">Mechanism</a>
+      <a href="#deployment">Deployment</a>
+      <a href="#code">Code</a>
+      <a href="#citation">Citation</a>
+    </nav>
+    <button class="theme-btn" id="theme-btn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ===================== HERO ===================== -->
+  <div class="hero">
+    <span class="venue"><i aria-hidden="true"></i>IEEE ICVES 2026 · Regular paper</span>
+    <h1>Quantization and Corruption Robustness<br class="br-wide"> in Deployed Road&#8209;Scene Perception</h1>
+    <ul class="authors" aria-label="Authors">
+      <li>Aymen Bouguerra</li>
+      <li>Ansgar Radermacher</li>
+      <li>Fabio Arnez</li>
+      <li>Chokri Mraidha</li>
+    </ul>
+    <p class="affil">Université Paris-Saclay, CEA-List</p>
+
+    <div class="actions">
+      <span class="btn" aria-disabled="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+        Paper <span class="tag">coming soon</span>
+      </span>
+      <a class="btn btn-primary" href="https://github.com/CEA-LIST/Quantization-and-Corruption-Robustness-in-Deployed-Road-Scene-Perception" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+        Code <span class="tag">CEA-List</span>
+      </a>
+      <a class="btn" href="#citation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/></svg>
+        BibTeX
+      </a>
+    </div>
+  </div>
+
+  <!-- ===================== OVERVIEW ===================== -->
+  <div class="overview" id="overview">
+    <figure>
+      <a class="plate" href="assets/teaser.jpg" target="_blank" rel="noopener noreferrer">
+        <img src="assets/teaser.jpg" width="1400" height="1820"
+             alt="Overview figure. (A) A bus in fog: at Gaussian blur sigma 6 the FP32 model reads it as a truck, the W8A8 model as a bus. (B) Balanced accuracy against Gaussian blur: W8A8 stays above FP32 through severities 4 to 6, peaking at +4.1 points. (C) The deployed true-INT8 detector runs in 3.42 ms instead of 5.33 ms and has 22.0 MB of weights instead of 40.5 MB.">
+      </a>
+      <figcaption><b>(A)</b> Under Gaussian blur σ&nbsp;=&nbsp;6 the full-precision model calls this bus a truck; the 8-bit model reads it correctly, in all three seed pairs. <b>(B)</b> The quantized encoder is more accurate through the moderate-to-heavy blur window. <b>(C)</b> Deployed as true INT8, the detector is 1.56× faster and 1.8× smaller.</figcaption>
+    </figure>
+
+    <div>
+      <div class="tldr">
+        <span class="label">TL;DR</span>
+        <p>8-bit quantization is usually assumed to make perception models more fragile. On real adverse-weather driving images, it does not: the quantized <strong>detector</strong> is as robust to blur as its full-precision counterpart, and a quantized <strong>recognition encoder</strong> is <em>more</em> robust, while both run faster and smaller as true INT8 models.</p>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value">≤ 1.7 mAP</div>
+          <div class="stat-label">Detector gap to FP32</div>
+          <div class="stat-note">W8A8, in all 13 conditions, uncorrupted and blurred</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">+4.1 pp</div>
+          <div class="stat-label">Recognition gain at σ = 6</div>
+          <div class="stat-note">Balanced accuracy; +5.9 pp at defocus severity 5</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">1.56×</div>
+          <div class="stat-label">Faster true-INT8 detector</div>
+          <div class="stat-note">with 1.8× smaller weights than FP16</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">0</div>
+          <div class="stat-label">Corrupted training images</div>
+          <div class="stat-note">Blur is injected at evaluation only</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ABSTRACT ===================== -->
+  <section id="abstract" class="prose abstract">
+    <div class="sec-head">
+      <span class="label">Abstract</span>
+    </div>
+    <p>Quantization lowers weight and activation precision to fit neural networks onto automotive hardware, and is assumed to cost robustness to degraded camera inputs. For road-scene perception, that cost has never been measured under matched training budgets. On an adverse-weather driving benchmark, a separate 8-bit quantization-aware trained recognition encoder is <em>more</em> accurate under moderate-to-heavy Gaussian and defocus blur than its full-precision counterpart by several points of balanced accuracy. It saw no synthetically corrupted image in training and blur only at evaluation. Training does the work, not the arithmetic: a control trained with injected noise of matched magnitude does not reproduce the gain, and training-free quantization reproduces it only in part. We link the effect to a shared feature subspace: quantization noise and blur perturb the same high-rank directions of the representation. A model trained to remain accurate despite its own quantization noise therefore inherits accuracy under blur. The gain is confined to a severity window and reverses once the input is too degraded to read. The detector that ships in the vehicle loses no aggregate robustness under the same quantization and runs faster and smaller as a true INT8 model. The recognition gain therefore comes at no measurable cost to the deployed detector.</p>
+  </section>
+
+  <!-- ===================== SETUP ===================== -->
+  <section id="setup">
+    <div class="prose sec-head">
+      <span class="label">Setup</span>
+      <h2>One strict rule: no corrupted image in training</h2>
+    </div>
+    <p class="prose lead">Every model is trained and calibrated on uncorrupted images only. Blur is injected at evaluation, at graded severities, so any change in robustness is emergent rather than trained in.</p>
+    <div class="cards">
+      <div class="card">
+        <span class="k">Benchmark</span>
+        <h3>DAWN</h3>
+        <p>Traffic images captured in real fog, sandstorm, rain and snow. We keep Car, Truck, Bus and Person (1,026 images), split by image so no scene leaks.</p>
+      </div>
+      <div class="card">
+        <span class="k">Detector</span>
+        <h3>RT-DETR R18</h3>
+        <p>COCO-pretrained, 640×640. FP32, W8A8 QAT and W8A8 PTQ all derive from one converged detector with the same data, schedule and seeds.</p>
+      </div>
+      <div class="card">
+        <span class="k">Recognition</span>
+        <h3>DINOv2 ViT-S/14</h3>
+        <p>A separate encoder with a linear head on ground-truth object crops. LSQ W8A8 on the 48 transformer linear layers, backbone frozen.</p>
+      </div>
+      <div class="card">
+        <span class="k">Protocol</span>
+        <h3>Blur at evaluation only</h3>
+        <p>Gaussian, defocus and motion blur at graded severities on pixel-identical inputs for every variant. Three seeds throughout.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DETECTION ===================== -->
+  <section id="detection">
+    <div class="prose sec-head">
+      <span class="label">Detection</span>
+      <h2>The quantized detector loses no blur robustness</h2>
+    </div>
+    <div class="prose">
+      <p>Under a budget-matched protocol, the three detector variants track each other across the entire blur sweep, for defocus and motion blur as well as Gaussian. Corruption degrades detection heavily, as expected, but quantization adds nothing to it, for the training-free PTQ variant as much as for QAT. With three seeds this is a bound on the difference rather than a formal equivalence test.</p>
+    </div>
+    <figure class="fig-plot fig-wide">
+      <a class="plate" href="assets/detection_neutral.svg" target="_blank" rel="noopener noreferrer">
+        <img src="assets/detection_neutral.svg" width="1005" height="342" loading="lazy" decoding="async"
+             alt="Two panels. (A) COCO mAP against Gaussian blur sigma from 0 to 8 for FP32, W8A8 QAT and W8A8 PTQ: the three curves overlap, falling from about 38 to about 4. (B) Difference to FP32 per condition for QAT and PTQ, plus defocus and motion markers: all values lie between about minus 1.7 and plus 0.8 points.">
+      </a>
+      <figcaption><b>W8A8 detection is blur-neutral</b> (RT-DETR on DAWN, 3 seeds, 205 held-out images; shading ± seed std). <b>(A)</b> COCO mAP against Gaussian σ: FP32, W8A8 QAT and W8A8 PTQ are essentially superposed down to near task failure. <b>(B)</b> Difference to FP32 per condition: both quantized variants fluctuate around zero, within 1.7 points everywhere.</figcaption>
+    </figure>
+    <div class="prose">
+      <p>Fine-tuning does not set the robustness profile in advance: the zero-shot COCO checkpoint, the fine-tuned detector and its FP32 continuation degrade on one schedule. The one open concern is the rarest class: at Gaussian σ&nbsp;=&nbsp;4, every quantized run scores below every full-precision run on Bus (24 test instances), which we cannot separate from sampling noise at that size.</p>
+    </div>
+    <details class="more prose">
+      <summary>Detector predictions under increasing blur</summary>
+      <div class="inner">
+        <figure>
+          <a class="plate" href="assets/detector_predictions.jpg" target="_blank" rel="noopener noreferrer">
+            <img src="assets/detector_predictions.jpg" width="2200" height="1247" loading="lazy" decoding="async"
+                 alt="Two held-out DAWN frames, one in fog and one in rain, shown uncorrupted and at Gaussian sigma 2, 4 and 6. Detected car and truck boxes thin out as blur grows, and in the fog scene the truck is relabelled as a bus at sigma 6.">
+          </a>
+          <figcaption>Held-out DAWN frames (fog, rain), predictions at score ≥ 0.5, uncorrupted and at Gaussian severities 2, 4 and 5. Detections thin out and classes flip while the scenes stay recognizable to a person; quantization does not change this profile.</figcaption>
+        </figure>
+      </div>
+    </details>
+  </section>
+
+  <!-- ===================== RECOGNITION ===================== -->
+  <section id="recognition">
+    <div class="prose sec-head">
+      <span class="label">Recognition</span>
+      <h2>A quantized encoder becomes more robust to blur it never saw</h2>
+    </div>
+    <div class="prose">
+      <p>Evaluated in isolation, recognition behaves differently from detection. A W8A8 DINOv2 encoder, trained with LSQ on <strong>uncorrupted</strong> crops of DAWN road objects, matches its FP32 control on uncorrupted input and is more accurate under moderate-to-heavy Gaussian and defocus blur. A paired, class-stratified bootstrap separates these gains from zero, and they survive Benjamini–Hochberg control.</p>
+    </div>
+    <figure class="fig-plot fig-wide">
+      <a class="plate" href="assets/recognition_gain.svg" target="_blank" rel="noopener noreferrer">
+        <img src="assets/recognition_gain.svg" width="1005" height="344" loading="lazy" decoding="async"
+             alt="Two panels. (A) Balanced accuracy against Gaussian blur sigma for FP32 and W8A8: the curves coincide up to sigma 2, then W8A8 stays higher through the shaded severity 4 to 6 window. (B) Per-condition gain: Gaussian rises to +4.1 points at sigma 6, defocus reaches +5.9 points at severity 5, motion stays near zero.">
+      </a>
+      <figcaption><b>Uncorrupted-image W8A8 QAT is more blur-robust on real road objects</b> (DAWN ground-truth crops, 3 seeds; shading and bars ± seed std). <b>(A)</b> Balanced accuracy against Gaussian σ. <b>(B)</b> Per-condition gain across blur families.</figcaption>
+    </figure>
+
+    <div class="prose">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Condition</th><th>FP32</th><th>W8A8</th><th>Δ (pp)</th><th>95% CI</th><th>p</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Uncorrupted</td><td>77.5</td><td>77.3</td><td>−0.2</td><td>[−2.6, +2.4]</td><td class="muted">n.s.</td></tr>
+            <tr><td>Gaussian σ = 4 (sev. 4)</td><td>72.6</td><td>75.1</td><td><strong>+2.5</strong></td><td>[+0.5, +4.7]</td><td>.008</td></tr>
+            <tr><td>Gaussian σ = 6 (sev. 5)</td><td>66.8</td><td>70.8</td><td><strong>+4.1</strong></td><td>[+1.0, +7.4]</td><td>.004</td></tr>
+            <tr><td>Gaussian σ = 8 (sev. 6)</td><td>58.6</td><td>59.9</td><td>+1.4</td><td>[−2.5, +5.2]</td><td class="muted">n.s.</td></tr>
+            <tr><td>Defocus sev. 4</td><td>70.1</td><td>73.7</td><td><strong>+3.6</strong></td><td>[+0.3, +7.0]</td><td>.015</td></tr>
+            <tr><td>Defocus sev. 5</td><td>61.4</td><td>67.3</td><td><strong>+5.9</strong></td><td>[+2.8, +9.1]</td><td>.0002</td></tr>
+            <tr><td>Motion sev. 4</td><td>69.2</td><td>71.4</td><td>+2.3</td><td>[−1.7, +4.4]</td><td class="muted">n.s.</td></tr>
+            <tr><td>Motion sev. 5</td><td>67.1</td><td>66.5</td><td>−0.6</td><td>[−3.9, +1.4]</td><td class="muted">n.s.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">Balanced accuracy (%), 3 seeds, with paired class-stratified crop-bootstrap 95% confidence intervals. Differences are computed from unrounded values. Motion intervals use a fresh draw of its stochastic kernel, so they are not centred on the printed Δ.</p>
+    </div>
+
+    <figure class="fig-wide">
+      <a class="plate" href="assets/per_object_examples.jpg" target="_blank" rel="noopener noreferrer">
+        <img src="assets/per_object_examples.jpg" width="2200" height="1082" loading="lazy" decoding="async"
+             alt="Six held-out DAWN objects: a person, two buses, two trucks and a car, each shown uncorrupted and blurred. Uncorrupted, both models are correct. Blurred, FP32 predicts the wrong class (for example car for the person, truck for a bus) while W8A8 stays correct.">
+      </a>
+      <figcaption><b>The gain, object by object.</b> Six held-out DAWN objects (magenta box) across classes, weather and blur. Uncorrupted (top), FP32 and W8A8 both read the object correctly; blurred (bottom), the full-precision model flips to the wrong class while the quantized model stays correct, in all three seed pairs.</figcaption>
+    </figure>
+
+    <div class="note prose">
+      <h3>What the gain is, and is not</h3>
+      <ul>
+        <li><strong>A balanced-accuracy gain carried by the minority classes.</strong> The dominant car class is already near ceiling, so plain accuracy slips by up to 2.9 pp. Both are reported in the paper.</li>
+        <li><strong>Gaussian and defocus blur, not blur in general.</strong> Motion blur, the noisiest condition, shows no reliable gain.</li>
+        <li><strong>Not a confidence gain.</strong> Calibration and selective prediction are slightly worse under quantization, so score thresholds should be recalibrated.</li>
+        <li><strong>A standalone encoder.</strong> It is not RT-DETR's classification branch, which was not instrumented.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== MECHANISM ===================== -->
+  <section id="mechanism">
+    <div class="prose sec-head">
+      <span class="label">Mechanism</span>
+      <h2>Quantization noise and blur share a feature subspace</h2>
+    </div>
+    <div class="prose">
+      <p>Projected onto the singular basis of the full-precision features, the quantization residual and the blur residual land in the same place: both concentrate in the high-rank tail of the representation, and their per-rank profiles fall along a common line. Spectrally, quantization noise resembles a scaled-down moderate blur. A model trained to stay accurate despite its own quantization noise in that tail plausibly carries the invariance over to blur.</p>
+    </div>
+    <figure class="fig-plot fig-wide">
+      <a class="plate" href="assets/shared_subspace.svg" target="_blank" rel="noopener noreferrer">
+        <img src="assets/shared_subspace.svg" width="1005" height="348" loading="lazy" decoding="async"
+             alt="Three panels. (A) Per-rank energy of the signal, the blur residual and the quantization residual over 384 feature ranks; effective rank unchanged, 90.4 versus 90.7. (B) Blur residual against quantization residual, rank by rank, on log axes: points fall along a common line, per-rank cosine 0.69. (C) Profile cosine with quantization against perturbation residual energy for blur, sensor noise and contrast, all well above a shuffled-rank null band.">
+      </a>
+      <figcaption><b>A shared subspace</b> (DAWN ground-truth-crop features). <b>(A)</b> Per-rank energy: signal in the low-rank head, both residuals in the high-rank tail, effective rank unchanged. <b>(B)</b> The two residuals rank by rank fall along a common line, so they perturb the <em>same</em> directions. <b>(C)</b> Blur, sensor noise and contrast all track the quantization profile far above a shuffled-rank null.</figcaption>
+    </figure>
+    <div class="prose">
+      <p>Overlap is a precondition for transfer, not a measure of it: sensor noise and contrast overlap with quantization as strongly as blur yet gain far less. The analysis is correlational, so this is the account most consistent with the data, not one isolated causally. The simpler explanations are excluded:</p>
+    </div>
+
+    <div class="checks">
+      <div class="check">
+        <div class="check-top"><h3>Matched-noise control</h3><span class="verdict">Does not reproduce</span></div>
+        <p>Uniform noise matched to each quantizer's step size improves uncorrupted accuracy (+1.8 pp, the signature of a regularizer) yet stays flat to negative exactly where QAT gains.</p>
+      </div>
+      <div class="check">
+        <div class="check-top"><h3>Training-free quantization</h3><span class="verdict">Partial</span></div>
+        <p>PTQ of the same model shows no sustained Gaussian gain and loses uncorrupted accuracy, though it inherits most of the defocus gain. Training does the work, not the arithmetic alone.</p>
+      </div>
+      <div class="check">
+        <div class="check-top"><h3>Input smoothing</h3><span class="verdict">Ruled out</span></div>
+        <p>The quantized and full-precision models have near-identical frequency sensitivity, far too close to account for the gain.</p>
+      </div>
+      <div class="check">
+        <div class="check-top"><h3>Boundary flattening</h3><span class="verdict">Ruled out</span></div>
+        <p>The class-balanced margin gap is positive through the window and turns negative only past it, the pattern of corruption-invariant features (single-seed probe).</p>
+      </div>
+      <div class="check">
+        <div class="check-top"><h3>Rank reduction</h3><span class="verdict">Ruled out</span></div>
+        <p>Effective feature rank is unchanged (90.4 vs 90.7): the model gains invariance to the shared tail rather than discarding dimensions.</p>
+      </div>
+      <div class="check">
+        <div class="check-top"><h3>Simulated arithmetic</h3><span class="verdict">Ruled out</span></div>
+        <p>Re-running the whole sweep on true-integer kernels reproduces the fake-quant result at every severity, window gains included.</p>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top: 36px;">
+      <div>
+        <h3 style="margin-top: 22px;">The gain lives in a severity window</h3>
+        <p style="color: var(--ink-2); font-size: 0.97rem;">Absent at mild blur, peaking at moderate-to-heavy blur, then reversing sharply once the input is too degraded to classify at all. The enlarged margin helps only while the blurred input remains readable. PTQ shows no such rise.</p>
+        <p class="table-note"><span class="win-key" aria-hidden="true"></span>Shaded rows: the severity 4–6 window shaded in the figures.</p>
+      </div>
+      <div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Gaussian σ</th><th class="l">Regime</th><th>FP32</th><th>Δ QAT</th><th>Δ PTQ</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>0</td><td class="l">uncorrupted</td><td>77.5</td><td>−0.2</td><td>−3.3</td></tr>
+              <tr><td>2</td><td class="l">rising</td><td>76.7</td><td>+0.8</td><td>−1.9</td></tr>
+              <tr class="win"><td>4</td><td class="l">rising</td><td>72.6</td><td>+2.5</td><td>+1.3</td></tr>
+              <tr class="win"><td>6</td><td class="l">peak</td><td>66.8</td><td><strong>+4.1</strong></td><td>−0.3</td></tr>
+              <tr class="win"><td>8</td><td class="l">positive (n.s.)</td><td>58.6</td><td>+1.4</td><td>−1.7</td></tr>
+              <tr><td>10</td><td class="l">reversal</td><td>56.1</td><td>−2.6</td><td>−7.0</td></tr>
+              <tr><td>14</td><td class="l">reversal</td><td>46.0</td><td>−6.0</td><td>−6.4</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="table-note">Balanced accuracy (%) on DAWN ground-truth crops, 3 seeds; Δ against FP32 in points.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DEPLOYMENT ===================== -->
+  <section id="deployment">
+    <div class="prose sec-head">
+      <span class="label">Deployment</span>
+      <h2>Faster and smaller as a true INT8 model</h2>
+    </div>
+    <div class="prose">
+      <p>The vendor path is not competitive here: TensorRT's INT8 engines run <em>slower</em> than its own FP16 engine, because quantize/dequantize transitions between integer and floating-point regions break the whole-graph fusion FP16 relies on. Custom CUTLASS kernels fold rescaling and activation into the kernel epilogues and capture the pipeline as one CUDA graph. Against the identical pipeline in FP16, the integer detector scores within −0.2 to +2.0 mAP in all thirteen conditions, which we read as a tie.</p>
+    </div>
+
+    <div class="prose">
+      <h3 style="margin-top: 26px;">RT-DETR detector, median latency (ms) at 640×640</h3>
+      <div class="table-wrap" style="margin-top: 12px;">
+        <table>
+          <thead>
+            <tr><th>Precision</th><th>batch 1</th><th>batch 4</th><th>batch 8</th><th>batch 16</th><th>Weights</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>FP16 (CUDA graph)</td><td>5.33</td><td>22.0</td><td>47.1</td><td>99.0</td><td>40.5 MB</td></tr>
+            <tr><td>True INT8 (ours)</td><td><strong>3.42</strong></td><td><strong>14.3</strong></td><td><strong>30.7</strong></td><td><strong>65.7</strong></td><td><strong>22.0 MB</strong></td></tr>
+            <tr><td>Speed-up</td><td>1.56×</td><td>1.54×</td><td>1.54×</td><td>1.51×</td><td>1.8×</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">Convolution and linear layers run in INT8 and the rest in FP16, hence 1.8× rather than 2× smaller weights.</p>
+
+      <h3 style="margin-top: 30px;">DINOv2 encoders, end-to-end true-INT8 speed-up over FP16</h3>
+      <div class="table-wrap" style="margin-top: 12px;">
+        <table>
+          <thead>
+            <tr><th>Encoder</th><th>batch 1</th><th>batch 8</th><th>batch 32</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ViT-S/14 (evaluated)</td><td>1.36×</td><td>1.58×</td><td>1.85×</td></tr>
+            <tr><td>ViT-B/14</td><td>1.47×</td><td>1.96×</td><td>2.01×</td></tr>
+            <tr><td>ViT-L/14</td><td>1.77×</td><td>2.03×</td><td><strong>2.13×</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">NVIDIA RTX 2000 Ada laptop GPU, CUDA-graph capture, median latency, stack-matched baselines that isolate precision. The speed-up grows with model size.</p>
+    </div>
+
+    <div class="note prose">
+      <h3>Scope</h3>
+      <ul>
+        <li>One benchmark (DAWN), one detector and one separate, unintegrated encoder; both held-out sets are modest and car-dominated.</li>
+        <li>The controlled sweep is blur-only, so other degradations remain open.</li>
+        <li>The mechanism is correlational: the noise-regularization alternative is excluded, activation clipping is not. The account predicts the window should move with bit-width, which is untested.</li>
+        <li>Latency comes from one laptop-class GPU; power is unmeasured.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== CODE ===================== -->
+  <section id="code" class="prose">
+    <div class="sec-head">
+      <span class="label">Code</span>
+      <h2>Reproduction code</h2>
+    </div>
+    <div class="code-card">
+      <div class="main">
+        <div class="repo">CEA-LIST / Quantization-and-Corruption-Robustness-in-Deployed-Road-Scene-Perception</div>
+      </div>
+      <a class="btn btn-primary" href="https://github.com/CEA-LIST/Quantization-and-Corruption-Robustness-in-Deployed-Road-Scene-Perception" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg>
+        Open repository
+      </a>
+    </div>
+  </section>
+
+  <!-- ===================== CITATION ===================== -->
+  <section id="citation" class="prose">
+    <div class="sec-head">
+      <span class="label">Citation</span>
+      <h2>BibTeX</h2>
+    </div>
+    <div class="bib">
+      <pre id="bibtex">@inproceedings{bouguerra2026perception,
+  title     = {Quantization and Corruption Robustness in Deployed Road-Scene Perception},
+  author    = {Bouguerra, Aymen and Radermacher, Ansgar and Arnez, Fabio and Mraidha, Chokri},
+  booktitle = {IEEE International Conference on Vehicular Electronics and Safety (ICVES)},
+  address   = {Cochabamba, Bolivia},
+  year      = {2026}
+}</pre>
+      <button class="copy-btn" id="copy-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <span>Copy</span>
+      </button>
+    </div>
+
+    <h3 style="margin-top: 40px;">Related work</h3>
+    <a class="related" href="https://arxiv.org/abs/2509.21173" target="_blank" rel="noopener noreferrer">
+      <div class="t">Less Precise Can Be More Reliable: A Systematic Evaluation of Quantization's Impact on VLMs Beyond Accuracy</div>
+      <div class="a"><b>Aymen Bouguerra</b>, Daniel Montoya, Alexandra Gomez-Villa, Chokri Mraidha, Fabio Arnez</div>
+      <div class="m">ICML 2026 · introduces the spectral-filtering view of quantization this work builds on</div>
+    </a>
+    <div class="bib">
+      <pre>@inproceedings{bouguerra2026lessprecise,
+  title     = {Less Precise Can Be More Reliable: A Systematic Evaluation
+               of Quantization's Impact on {VLMs} Beyond Accuracy},
+  author    = {Bouguerra, Aymen and Montoya, Daniel and Gomez-Villa, Alexandra
+               and Mraidha, Chokri and Arnez, Fabio},
+  booktitle = {International Conference on Machine Learning (ICML)},
+  year      = {2026}
+}</pre>
+      <button class="copy-btn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <span>Copy</span>
+      </button>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="ieee">© 2026 IEEE. Personal use of this material is permitted. Permission from IEEE must be obtained for all other uses, in any current or future media, including reprinting/republishing this material for advertising or promotional purposes, creating new collective works, for resale or redistribution to servers or lists, or reuse of any copyrighted component of this work in other works.</p>
+    <p>The abstract and figures on this page are taken from the accepted version of the paper. The definitive version will be available on IEEE Xplore.</p>
+    <p>Université Paris-Saclay, CEA-List, F-91120 Palaiseau, France.</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+
+    // Theme toggle: follows the system until the visitor picks one.
+    var themeBtn = document.getElementById("theme-btn");
+    function currentTheme() {
+      var t = root.getAttribute("data-theme");
+      if (t) return t;
+      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    themeBtn.addEventListener("click", function () {
+      var next = currentTheme() === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("theme", next); } catch (e) {}
+    });
+
+    // Copy BibTeX (one button per block).
+    Array.prototype.forEach.call(document.querySelectorAll(".bib"), function (bib) {
+      var copyBtn = bib.querySelector(".copy-btn");
+      var label = copyBtn.querySelector("span");
+      copyBtn.addEventListener("click", function () {
+        var text = bib.querySelector("pre").textContent;
+        function done(ok) {
+          label.textContent = ok ? "Copied" : "Select and copy";
+          setTimeout(function () { label.textContent = "Copy"; }, 1800);
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+        } else {
+          var ta = document.createElement("textarea");
+          ta.value = text; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+          document.body.appendChild(ta); ta.select();
+          var ok = false;
+          try { ok = document.execCommand("copy"); } catch (e) {}
+          document.body.removeChild(ta);
+          done(ok);
+        }
+      });
+    });
+
+    // Highlight the section in view.
+    var links = Array.prototype.slice.call(document.querySelectorAll(".nav a"));
+    if ("IntersectionObserver" in window) {
+      var byId = {};
+      links.forEach(function (a) { byId[a.getAttribute("href").slice(1)] = a; });
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (!e.isIntersecting) return;
+          links.forEach(function (a) { a.classList.remove("active"); });
+          var a = byId[e.target.id];
+          if (a) a.classList.add("active");
+        });
+      }, { rootMargin: "-45% 0px -50% 0px" });
+      Object.keys(byId).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) obs.observe(el);
+      });
+    }
+  })();
+</script>
+</body>
+</html>
